@@ -97,7 +97,27 @@ settingServer.post("/command", (gettingRequest, gettingResponse) => {
     if ((gettingRequest.session.server ?? {}).host) fncSSHConnection(gettingRequest, gettingResponse, gettingCommand, gettingStdIN);
     else gettingResponse.send({ result: "FAIL", message: gettingRequest.session.server ?? {} });
 });
-
+settingServer.post("/check", (gettingRequest, gettingResponse) => {
+    if ((gettingRequest.session.server ?? {}).host) {
+        const gettingHost = (gettingRequest.session.server ?? {}).host ?? null;
+        const gettingPort = (gettingRequest.session.server ?? {}).port ?? 22;
+        const gettingUsername = (gettingRequest.session.server ?? {}).username ?? null;
+        const gettingPassword = (gettingRequest.session.server ?? {}).password ?? null;
+        const settingSSHConnection = {
+            host: gettingHost,
+            port: gettingPort,
+            username: gettingUsername,
+            password: gettingPassword
+        }
+        settingSSHClient.connect(settingSSHConnection)
+        .then(() => {
+            settingSSHClient.dispose();
+            gettingResponse.send({result: "OK", message: "success"});
+        })
+        .catch((gettingConnectionError) => gettingResponse.send({result: "Get connection error", message: gettingConnectionError}));
+    }
+    else gettingResponse.send({result: "FAIL", message: "No register server"});
+});
 
 /** server is running */
 settingServer.listen(settingServerPort, () => console.log("Server is running on port: 3000"));
