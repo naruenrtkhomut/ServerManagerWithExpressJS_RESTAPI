@@ -1,6 +1,8 @@
 const gettingExpress = require('express');
 const gettingExpressSession = require('express-session');
 const {NodeSSH} = require('node-ssh');
+const gettingBodyParser = require('body-parser');
+const gettingCors = require('cors');
 
 
 
@@ -9,18 +11,27 @@ const settingServerPort = 3000;
 const settingServer = new gettingExpress();
 const settingSSHClient = new NodeSSH();
 
+const settingBodyJson = gettingBodyParser.json()
 
 /** session configuration */
+settingServer.use(gettingCors({
+    origin: 'http://localhost:3001',
+    credentials: true,
+    methods: ['POST', 'PUT', 'GET', 'HEAD'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+}));
 const settingSessionConfig = {
     secret: 'session-secret',
-    resave: false,
+    resave: true,
     saveUninitialized: true,
-    cookie: {}
+    cookie: {
+        secure: true,
+        httpOnly: true,
+        maxAge: 1000 * 60 * 60 * 24,
+        sameSite: 'lax'
+    }
 }
 settingServer.set('trust proxy', 1);
-if (settingServer.get('env') === 'production') {
-  settingSessionConfig.cookie.secure = true
-}
 settingServer.use(gettingExpressSession(settingSessionConfig));
 
 
@@ -64,13 +75,23 @@ const fncSSHConnection = (gettingRequest, gettingResponse, gettingCommand, getti
     }));
 }
 
+/** header */
+settingServer.use((gettingRequest, gettingResponse, gettingNext) => {
+    gettingResponse.setHeader('Access-Control-Allow-Origin', 'http://localhost:3001');
+    gettingResponse.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE');
+    gettingResponse.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    gettingResponse.setHeader('Access-Control-Allow-Credentials', true);
+    gettingNext();
+});
+
 
 /** server api */
-settingServer.post("/select-server", (gettingRequest, gettingResponse) => {
-    const gettingHost = gettingRequest.headers["host"];
-    const gettingPort = gettingRequest.headers["port"] ?? 22;
-    const gettingUsername = gettingRequest.headers["username"];
-    const gettingPassword = gettingRequest.headers["password"];
+settingServer.post("/select-server", settingBodyJson, (gettingRequest, gettingResponse) => {
+    const gettingBody = gettingRequest.body ?? {};
+    const gettingHost = gettingBody.host;
+    const gettingPort = gettingBody.port ?? 22;
+    const gettingUsername = gettingBody.username;
+    const gettingPassword = gettingBody.password;
     const settingSSHConnection = {
         host: gettingHost,
         port: gettingPort,
@@ -88,7 +109,9 @@ settingServer.post("/select-server", (gettingRequest, gettingResponse) => {
     })
     .catch((gettingConnectionError) => gettingResponse.send({
         result: "SSH connection error",
-        message: gettingConnectionError
+        message: gettingConnectionError,
+        header: gettingRequest.headers,
+        body: gettingBody
     }));
 });
 settingServer.post("/command", (gettingRequest, gettingResponse) => {
